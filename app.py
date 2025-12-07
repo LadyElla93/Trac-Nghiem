@@ -1,4 +1,4 @@
-import streamlit,st
+import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 from docx import Document
@@ -79,7 +79,7 @@ with col2:
     add_image = st.checkbox("Tự động thêm hình minh hoạ cho câu hình học", True)
 
 # ====================== TẠO ĐỀ ======================
-if st.button("TẠO ĐỀ & XUẤTT FILE WORD NGAY", use_container_width=True):
+if st.button("TẠO ĐỀ & XUẤT FILE WORD NGAY", use_container_width=True):
     if not objectives.strip() or not content or not selected_levels or not selected_types:
         st.error("Vui lòng nhập đủ thông tin và chọn mức độ + loại câu hỏi!")
     else:
@@ -142,7 +142,7 @@ if st.button("TẠO ĐỀ & XUẤTT FILE WORD NGAY", use_container_width=True):
                 elif "[hình minh họa" in line.lower():
                     st.markdown("**Hình minh hoạ sẽ được chèn trong file Word**")
                 elif re.match(r'^[A-E]\.', line):
-                    if correct and line.strip().startswith(correct + "."):
+                    if correct and re.match(rf'^{re.escape(correct)}\.', line, re.IGNORECASE):
                         st.markdown(f"<div class='correct'>{line}</div>", unsafe_allow_html=True)
                     else:
                         st.markdown(f"<div class='option'>{line}</div>", unsafe_allow_html=True)
@@ -189,9 +189,9 @@ if st.button("TẠO ĐỀ & XUẤTT FILE WORD NGAY", use_container_width=True):
 
                 elif re.match(r'^[A-E]\.', line):
                     run = p.add_run(line)
-                    if correct and line.strip().startswith(correct + "."):
+                    if correct and re.match(rf'^{re.escape(correct)}\.', line, re.IGNORECASE):
                         run.bold = True
-                        run.font.color.rgb = RGBColor(255, 0, 0)  # TÔ ĐỎ ĐẬM
+                        run.font.color.rgb = RGBColor(255, 0, 0)
                     p.paragraph_format.left_indent = Inches(0.5)
                     p.style = 'List Bullet'
 
@@ -212,5 +212,5 @@ if st.button("TẠO ĐỀ & XUẤTT FILE WORD NGAY", use_container_width=True):
             use_container_width=True
         )
 
-        st.success("XONG 100%! Đáp án đúng đã tô đỏ trong lựa chọn – In thoải mái!")
+        st.success("XONG 100%! Đáp án đúng đã tô đỏ – In thoải mái!")
         st.balloons()
