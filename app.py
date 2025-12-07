@@ -2,30 +2,30 @@ import streamlit as st
 import google.generativeai as genai
 from pypdf import PdfReader
 from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_LINE_SPACING
+from docx.oxml.ns import qn
 import re
+import base64
+import os
+import tempfile
 
 # ====================== CẤU HÌNH ======================
-st.set_page_config(page_title="Soạn Đề Trắc Nghiệm Đẹp Như Word", page_icon="test_tube", layout="wide")
+st.set_page_config(page_title="Soạn Đề Trắc Nghiệm - THCS Tân Hội Đông", page_icon="test_tube", layout="wide")
 
 st.markdown("""
 <style>
-    .main-header {font-size: 2.6rem; color: #0068C9; text-align: center; font-weight: bold; margin: 30px 0;}
-    .stButton>button {background: linear-gradient(45deg, #0068C9, #0080FF); color: white; font-weight: bold; height: 60px; font-size: 19px; border-radius: 12px;}
-    .correct-answer {color: red; font-weight: bold; font-size: 1.4em;}
-    .question-block {background-color: #f8f9fa; padding: 15px; border-radius: 10px; border-left: 6px solid #0068C9; margin: 15px 0;}
-    .checkbox-box {background-color: #e8f4fc; padding: 12px; border-radius: 8px; border: 1px solid #0068C9;}
+    .main-title {font-size: 3rem; color: #c62828; text-align: center; font-weight: bold; margin: 20px 0;}
+    .sub-title {font-size: 1.5rem; color: #1565c0; text-align: center; font-weight: bold; margin-bottom: 40px;}
+    .stButton>button {background: linear-gradient(45deg, #c62828, #e53935); color: white; font-weight: bold; height: 60px; font-size: 20px; border-radius: 12px;}
 </style>
 """, unsafe_allow_html=True)
 
 # ====================== API KEY ======================
-if "GEMINI_API_KEY" in st.secrets:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-else:
-    key = st.sidebar.text_input("Gemini API Key", type="password", help="Lấy miễn phí tại: aistudio.google.com")
-    if key: genai.configure(api_key=key)
-    else:
-        st.error("Nhập API Key để tiếp tục!")
-        st.stop()
+if "GEMIMI_API_KEY" not in st.secrets:
+    st.error("Vui lòng thêm GEMIMI_API_KEY vào Secrets trên Streamlit!")
+    st.stop()
+genai.configure(api_key=st.secrets["GEMIMI_API_KEY"])
 
 # ====================== ĐỌC FILE ======================
 def read_file(file):
@@ -36,125 +36,171 @@ def read_file(file):
         try: return "\n".join([p.text for p in Document(file).paragraphs if p.text.strip()])
         except: return None
 
-# ====================== GIAO DIỆN ======================
-st.markdown('<div class="main-header">SOẠN ĐỀ TRẮC NGHIỆM ĐẸP NHƯ WORD</div>', unsafe_allow_html=True)
+# ====================== TIÊU ĐỀ ======================
+st.markdown('<div class="main-title">SOẠN ĐỀ TRẮC NGHIỆM</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Bản Demo của Trường THCS Tân Hội Đông - Đồng Tháp</div>', unsafe_allow_html=True)
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.subheader("1. Nhập nội dung")
+    st.subheader("1. Nội dung đầu vào")
     objectives = st.text_area("Yêu cầu cần đạt (bắt buộc)", height=140)
-    uploaded = st.file_uploader("Tải giáo án (PDF hoặc Word)", type=["pdf", "docx"])
+    uploaded = st.file_uploader("Tải giáo án (PDF/Word)", type=["pdf", "docx"])
     content = read_file(uploaded) if uploaded else ""
-    if uploaded and content:
-        st.success(f"Đã đọc: {uploaded.name}")
 
 with col2:
-    st.subheader("2. Cấu hình câu hỏi")
-    
-    # Mức độ - checkbox đẹp
-    st.markdown("**Mức độ nhận thức:**")
-    c1, c2, c3 = st.columns(3)
-    lv1 = c1.checkbox("Biết", True)
-    lv2 = c2.checkbox("Hiểu", True)
-    lv3 = c3.checkbox("Vận dụng", False)
-    selected_levels = [x for x, y in zip(["Biết","Hiểu","Vận dụng"], [lv1,lv2,lv3]) if y]
-    if selected_levels:
-        st.markdown(f"<div class='checkbox-box'>Mức độ: **{', '.join(selected_levels)}**</div>", unsafe_allow_html=True)
+    st.subheader("2. Cấu hình")
+    levels = st.multiselect("Mức độ", ["Biết", "Hiểu", "Vận dụng"], default=["Hiểu"])
+    types = st.multiselect("Loại câu hỏi", ["4 đáp án", "Đúng/Sai", "Nhiều lựa chọn đúng"], default=["4 đáp án"])
+    num = st.slider("Số lượng câu hỏi", 5, 20, 10)
+    include_images = st.checkbox("Tự động thêm hình minh hoạ cho câu hỏi Hình học", value=True)
 
-    # Loại câu hỏi
-    st.markdown("**Loại câu hỏi:**")
-    t1 = st.checkbox("4 đáp án (1 đúng)", True)
-    t2 = st.checkbox("Đúng - Sai", False)
-    t3 = st.checkbox("Nhiều lựa chọn đúng", False)
-    selected_types = []
-    if t1: selected_types.append("4 đáp án")
-    if t2: selected_types.append("Đúng/Sai")
-    if t3: selected_types.append("Nhiều lựa chọn")
-    if selected_types:
-        st.markdown(f"<div class='checkbox-box'>Loại: **{', '.join(selected_types)}**</div>", unsafe_allow_html=True)
-
-    num = st.slider("Số lượng câu hỏi", 5, 30, 15)
-
-# ====================== SOẠN ĐỀ ======================
-if st.button("TẠO ĐỀ NGAY", use_container_width=True):
-    if not objectives or not content or not selected_levels or not selected_types:
+# ====================== TẠO ĐỀ ======================
+if st.button("XUẤT FILE WORD / PDF", use_container_width=True):
+    if not objectives or not content:
         st.error("Vui lòng nhập đầy đủ thông tin!")
     else:
-        with st.spinner("Gemini 2.5 Flash đang soạn đề đẹp cho bạn..."):
+        with st.spinner("AI đang soạn đề + vẽ hình (nếu có)..."):
             model = genai.GenerativeModel("gemini-2.5-flash")
             
             prompt = f"""
-            Bạn là giáo viên giỏi nhất Việt Nam. Soạn đúng {num} câu trắc nghiệm chất lượng cao.
-            BÁM SÁT:
+            Soạn đúng {num} câu trắc nghiệm chất lượng cao, bám sát:
             - Yêu cầu cần đạt: {objectives}
-            - Nội dung bài học: {content[:30000]}
+            - Nội dung bài học: {content[:28000]}
 
-            Mức độ: {', '.join(selected_levels)}
-            Loại câu hỏi: {', '.join(selected_types)}
+            Mức độ: {', '.join(levels)}
+            Loại câu hỏi: {', '.join(types)}
 
             QUAN TRỌNG:
-            - Công thức toán PHẢI viết dưới dạng văn bản thuần (VD: a² + b² = c², √(x+1), tam giác ABC, ∠A = 90°...) → để giáo viên copy vào Word vẫn đẹp (không dùng LaTeX).
-            - Không giải thích.
-            - Đáp án đúng ghi riêng ở cuối mỗi câu: → Đáp án: B
+            - KHÔNG chào hỏi, KHÔNG giải thích.
+            - Công thức toán viết rõ: √(x+1), x² + 2x + 1 = 0, △ABC, ∠A = 90°...
+            - Nếu là câu hỏi HÌNH HỌC → đánh dấu: [HÌNH MINH HỌA]
+            - Đáp án đúng ghi ở cuối: → Đáp án: B
+            - Mỗi đáp án 1 dòng.
 
-            Định dạng:
-            **Câu 1.** Tam giác ABC có a = 3, b = 4, c = 5. Tam giác này là tam giác gì?
-            A. Thường
-            B. Vuông
-            C. Cân
-            D. Đều
-            → Đáp án: B
+            Ví dụ:
+            Câu 1. Cho tam giác ABC vuông tại A...
+            [HÌNH MINH HỌA]
+            A. 3   B. 4   C. 5   D. 6
+            → Đáp án: C
             ---
             """
             try:
-                resp = model.generate_content(prompt)
-                st.session_state.result = resp.text
-                st.success("HOÀN TẤT! Đề đẹp sẵn sàng!")
+                response = model.generate_content(prompt)
+                raw_text = response.text
+                st.session_state.raw = raw_text
+                st.success("ĐÃ TẠO THÀNH CÔNG! Đang xuất file...")
             except Exception as e:
                 st.error(f"Lỗi: {e}")
+                st.stop()
 
-# ====================== HIỂN THỊ ĐẸP (Đáp án đỏ, không dòng thừa) ======================
-if "result" in st.session_state:
-    st.markdown("---")
-    st.markdown("### ĐỀ TRẮC NGHIỆM ĐÃ HOÀN THIỆN")
+        # ====================== XỬ LÝ XUẤT FILE DOCX + PDF ======================
+        doc = Document()
+        doc.sections[0].top_margin = Inches(0.8)
+        doc.sections[0].bottom_margin = Inches(0.8)
+        doc.sections[0].left_margin = Inches(0.8)
+        doc.sections[0].right_margin = Inches(0.8)
 
-    lines = st.session_state.result.split('\n')
-    output = []
+        # Font chuẩn
+        style = doc.styles['Normal']
+        font = style.font
+        font.name = 'Times New Roman'
+        font.size = Pt(13)
 
-    for line in lines:
-        line = line.strip()
-        if not line: 
-            continue
+        # Giãn dòng 1.5
+        for paragraph in doc.paragraphs:
+            paragraph.paragraph_format.line_spacing = 1.5
+            paragraph.paragraph_format.space_after = Pt(6)
 
-        # Phát hiện dòng đáp án
-        if "→" in line or "Đáp án:" in line:
-            # Lấy chữ cái đáp án đúng
-            match = re.search(r'[A-E]|Đúng|Sai', line, re.IGNORECASE)
-            if match:
-                ans = match.group(0).upper()
+        lines = raw_text.split('\n')
+        current_q = None
+
+        for line in lines:
+            line = line.strip()
+            if not line: continue
+
+            if line.lower().startswith("câu"):
+                p = doc.add_paragraph()
+                run = p.add_run(line)
+                run.bold = True
+                run.font.size = Pt(13)
+                current_q = p
+                p.paragraph_format.line_spacing = 1.5
+
+            elif "[HÌNH MINH HỌA]" in line and include_images:
+                with st.spinner("Đang vẽ hình minh hoạ..."):
+                    img_model = genai.GenerativeModel("gemini-2.5-flash")
+                    img_prompt = f"Vẽ hình minh hoạ cho câu hỏi hình học sau (chỉ hình, không chữ): {line.replace('[HÌNH MINH HỌA]', '')[:200]}"
+                    try:
+                        img_resp = img_model.generate_content([img_prompt], generation_config={"response_mime_type": "image/jpeg"})
+                        img_bytes = img_resp.candidates[0].content.parts[0].inline_data.data
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+                            tmp.write(base64.b64decode(img_bytes))
+                            tmp_path = tmp.name
+                        doc.add_picture(tmp_path, width=Inches(3.5))
+                        os.unlink(tmp_path)
+                    except:
+                        doc.add_paragraph("(Hình minh hoạ không tạo được)")
+
+            elif re.match(r'^[A-D]\.', line) or re.match(r'^[A-D]\)', line):
+                p = doc.add_paragraph(line, style='List Bullet')
+                p.paragraph_format.left_indent = Inches(0.5)
+                p.paragraph_format.line_spacing = 1.5
+
+            elif "→ Đáp án:" in line:
+                match = re.search(r'[A-EĐúngSai]', line, re.IGNORECASE)
+                ans = match.group(0).upper() if match else "?"
                 if ans == "ĐÚNG": ans = "Đúng"
                 if ans == "SAI": ans = "Sai"
-                output.append(f"<div class='correct-answer'>→ {ans}</div>")
+                p = doc.add_paragraph()
+                run = p.add_run(f"→ {ans}")
+                run.font.color.rgb = docx.shared.RGBColor(255, 0, 0)
+                run.bold = True
+                run.font.size = Pt(13)
+
+            elif "---" in line:
+                doc.add_paragraph()
+
+        # Lưu file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
+            doc.save(tmp.name)
+            docx_path = tmp.name
+
+        with open(docx_path, "rb") as f:
+            docx_bytes = f.read()
+
+        # Tạo PDF (nếu có)
+        try:
+            from docx2pdf import convert
+            pdf_path = docx_path.replace(".docx", ".pdf")
+            convert(docx_path, pdf_path)
+            with open(pdf_path, "rb") as f:
+                pdf_bytes = f.read()
+            os.unlink(pdf_path)
+        except:
+            pdf_bytes = None
+
+        os.unlink(docx_path)
+
+        col_a, col_b = st.columns(2)
+        with col_a:
+            st.download_button(
+                "TẢI FILE WORD (.docx)",
+                data=docx_bytes,
+                file_name="De_Trac_Nghiem_THCS_Tan_Hoi_Dong.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True
+            )
+        with col_b:
+            if pdf_bytes:
+                st.download_button(
+                    "TẢI FILE PDF (để in)",
+                    data=pdf_bytes,
+                    file_name="De_Trac_Nghiem_THCS_Tan_Hoi_Dong.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
             else:
-                output.append(f"<div class='correct-answer'>{line}</div>")
-        elif line.startswith(("A.", "B.", "C.", "D.", "E.", "A)", "B)", "C)", "D)", "E)")):
-            output.append(f"**{line}**")
-        elif line.startswith("Câu") or line.startswith("**Câu"):
-            output.append(f"<div class='question-block'><strong>{line}</strong></div>")
-        elif "---" in line:
-            output.append("<hr>")
-        else:
-            output.append(line)
+                st.info("PDF không tạo được (cài docx2pdf trên máy nếu cần)")
 
-    st.markdown("\n".join(output), unsafe_allow_html=True)
-
-    # Nút tải về
-    st.download_button(
-        "TẢI VỀ ĐỀ (Copy vào Word đẹp 100%)",
-        data=st.session_state.result,
-        file_name="De_Trac_Nghiem_Dep_Nhu_Word.txt",
-        mime="text/plain",
-        use_container_width=True,
-        type="primary"
-    )
+        st.success("XUẤT FILE THÀNH CÔNG! Mở Word là đẹp như in")
