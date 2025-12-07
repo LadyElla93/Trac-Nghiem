@@ -20,6 +20,7 @@ st.markdown("""
     .correct {color: red !important; font-weight: bold !important;}
     .question {font-weight: bold; color: #1976d2; font-size: 1.2em; margin: 15px 0 8px 0;}
     .option {margin: 6px 0;}
+    .info-box {background-color: #e3f2fd; padding: 15px; border-radius: 10px; border-left: 5px solid #1976d2; margin: 15px 0;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -57,10 +58,35 @@ with col1:
 with col2:
     st.subheader("2. Chỉ cần TÍCH vào ô vuông")
 
+    # BỔ SUNG ĐỊNH NGHĨA 3 MỨC ĐỘ
+    with st.expander("Nhấp để xem định nghĩa 3 mức độ nhận thức", expanded=False):
+        st.markdown("""
+        <div class="info-box">
+        <strong>1. Biết (Nhận biết)</strong><br>
+        • Mức độ: Thấp nhất<br>
+        • Yêu cầu: Ghi nhớ, nhận diện, phát biểu lại các khái niệm, sự kiện, công thức đã học<br>
+        • Từ khóa: Định nghĩa, mô tả, liệt kê, gọi tên, chọn ra<br>
+        • Ví dụ: "Thủ đô của Việt Nam là gì?" → Hà Nội
+        
+        <strong>2. Hiểu (Thông hiểu)</strong><br>
+        • Mức độ: Cao hơn Biết<br>
+        • Yêu cầu: Diễn giải, tóm tắt, giải thích được ý nghĩa của thông tin đã biết<br>
+        • Từ khóa: Diễn giải, tóm tắt, giải thích, so sánh<br>
+        • Ví dụ: "Giải thích tại sao Hà Nội lại là thủ đô của Việt Nam"
+        
+        <strong>3. Vận dụng</strong><br>
+        • Mức độ: Cao nhất<br>
+        • Yêu cầu: Sử dụng kiến thức đã học để giải quyết vấn đề mới<br>
+        • Phân loại:<br>
+          &nbsp;&nbsp;→ Vận dụng đơn giản: Áp dụng vào tình huống quen thuộc<br>
+          &nbsp;&nbsp;→ Vận dụng nâng cao: Giải quyết vấn đề phức tạp, chưa từng gặp
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown("#### Mức độ nhận thức:")
-    lv1 = st.checkbox("**Biết**", True)
-    lv2 = st.checkbox("**Hiểu**", True)
-    lv3 = st.checkbox("**Vận dụng**", False)
+    lv1 = st.checkbox("**Biết** (Nhận biết – nhớ, gọi tên)", True)
+    lv2 = st.checkbox("**Hiểu** (Thông hiểu – giải thích, so sánh)", True)
+    lv3 = st.checkbox("**Vận dụng** (Giải quyết vấn đề mới)", False)
     selected_levels = [x for x, c in zip(["Biết","Hiểu","Vận dụng"], [lv1,lv2,lv3]) if c]
     st.success(f"Đã chọn: **{', '.join(selected_levels)}**")
 
@@ -152,7 +178,7 @@ if st.button("TẠO ĐỀ & XUẤT FILE WORD NGAY", use_container_width=True):
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-        # ====================== TẠO FILE WORD (ĐÁP ÁN ĐỎ TRONG LỰA CHỌN) ======================
+        # ====================== TẠO FILE WORD ======================
         doc = Document()
         for s in doc.sections:
             s.top_margin = s.bottom_margin = s.left_margin = s.right_margin = Inches(0.8)
