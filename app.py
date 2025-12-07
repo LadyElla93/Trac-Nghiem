@@ -83,41 +83,54 @@ with col2:
         q_types = st.multiselect("Loại câu hỏi:", ["4 đáp án (1 đúng)", "Đúng - Sai", "Nhiều lựa chọn đúng"], default=["4 đáp án (1 đúng)"])
         num_questions = st.slider("Số lượng:", 1, 30, 10)
 
-# --- 6. XỬ LÝ AI (ĐÃ SỬA LỖI MODEL) ---
+# --- 6. XỬ LÝ AI (ĐÃ SỬA MODEL THÀNH GEMINI 2.5 FLASH) ---
 st.markdown("---")
 if st.button("🚀 BẮT ĐẦU SOẠN ĐỀ", use_container_width=True):
     if not learning_objectives or not file_content or not levels or not q_types:
         st.warning("⚠️ Vui lòng nhập đầy đủ thông tin và tải file.")
     else:
         prompt = f"""
-        Bạn là giáo viên. Soạn {num_questions} câu trắc nghiệm.
-        1. TÀI LIỆU: {file_content[:10000]}... (đã cắt bớt để tối ưu)
-        2. YÊU CẦU: {learning_objectives}
-        3. CẤU TRÚC: {', '.join(levels)} | {', '.join(q_types)}
+        Bạn là giáo viên chuyên soạn đề trắc nghiệm. Sử dụng reasoning để đảm bảo chất lượng.
         
-        Xuất ra Markdown rõ ràng. Có đáp án và giải thích chi tiết.
+        Soạn đúng {num_questions} câu hỏi trắc nghiệm dựa trên:
+        1. TÀI LIỆU GIÁO ÁN: {file_content[:10000]}... (tóm tắt nếu cần)
+        2. YÊU CẦU CẦN ĐẠT (bám sát): {learning_objectives}
+        3. CẤU TRÚC: Mức độ {', '.join(levels)} | Loại {', '.join(q_types)}
+        
+        Quy tắc:
+        - 4 đáp án: A/B/C/D, chỉ 1 đúng.
+        - Đúng-Sai: Nhận định + Đúng/Sai.
+        - Nhiều lựa chọn: A/B/C/D/E, chỉ rõ số đúng.
+        
+        Định dạng Markdown: Mỗi câu cách nhau bằng ---. Bao gồm:
+        **Câu [số]:** [Nội dung] ([Mức độ] - [Loại])
+        Các đáp án...
+        > **Đáp án:** ...
+        > **Giải thích:** ...
         """
         
-        with st.spinner('🤖 Đang kết nối AI...'):
+        with st.spinner('🤖 Đang kết nối AI (Gemini 2.5 Flash)...'):
             try:
-                # Cố gắng dùng model mới nhất: Flash
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                # Model mới nhất ổn định (tháng 12/2025)
+                model = genai.GenerativeModel('gemini-2.5-flash')
                 response = model.generate_content(prompt)
                 st.session_state['result'] = response.text
-                st.success("🎉 Thành công!")
+                st.success("🎉 Thành công với Gemini 2.5 Flash!")
             except Exception as e:
-                # Nếu Flash lỗi, thử dùng model Pro cũ hơn
+                # Fallback sang model preview mạnh hơn nếu Flash bận
                 try:
-                    st.warning("⚠️ Model Flash đang bận, đang chuyển sang model dự phòng...")
-                    model_backup = genai.GenerativeModel('gemini-pro')
+                    st.warning("⚠️ Flash bận, chuyển sang Gemini 3 Pro Preview...")
+                    model_backup = genai.GenerativeModel('gemini-3-pro-preview')
                     response = model_backup.generate_content(prompt)
                     st.session_state['result'] = response.text
-                    st.success("🎉 Thành công (Dùng model dự phòng)!")
+                    st.success("🎉 Thành công với Gemini 3 Pro!")
                 except Exception as e2:
-                    st.error(f"❌ Lỗi kết nối: {e}")
-                    st.error("Gợi ý: Hãy kiểm tra lại API Key hoặc tạo API Key mới.")
+                    st.error(f"❌ Lỗi: {e}. Kiểm tra API Key hoặc quota. Gợi ý: Tạo key mới tại aistudio.google.com.")
 
 # --- 7. KẾT QUẢ ---
 if 'result' in st.session_state:
-    st.markdown(st.session_state['result'])
-    st.download_button("📥 Tải về", st.session_state['result'], "ket_qua.txt")
+    st.markdown("---")
+    st.markdown('<div class="sub-header">Kết quả soạn đề</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(st.session_state['result'])
+    st.download_button("📥 Tải về (.txt)", st.session_state['result'], "ket_qua_trac_nghiem.txt", mime="text/plain")
